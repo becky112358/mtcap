@@ -12,7 +12,7 @@ pub enum Mode {
 pub fn set_mode(token: &Token, mode: Mode) -> Result<()> {
     let response = curl::get(get_url(token, "loraNetwork/lora"))?;
 
-    let mut json = json::parse(&response)?;
+    let mut json = json::parse(&response)?["result"].clone();
     json["enabled"] = match mode {
         Mode::NetworkServer => json::JsonValue::Boolean(true),
         Mode::PacketForwarder => json::JsonValue::Boolean(true),
