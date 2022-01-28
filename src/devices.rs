@@ -1,12 +1,12 @@
 use std::fmt;
+use std::io::{self, Error, ErrorKind};
 use std::str::FromStr;
-
-use anyhow::{Error, Result};
 
 use strum_macros::Display;
 
 use crate::credentials::{get_url, save_apply, Token};
 use crate::curl;
+use crate::result::MtcapError;
 
 const EUI_LENGTH: usize = 8;
 
@@ -65,7 +65,7 @@ impl fmt::Display for Eui {
 impl FromStr for Eui {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> io::Result<Self> {
         let eui_vec = string_to_vec_u8(input, EUI_LENGTH, Some('-'))?;
         Ok(Eui::new(eui_vec.try_into().unwrap()))
     }
@@ -110,7 +110,7 @@ impl fmt::Display for Key {
 impl FromStr for Key {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> io::Result<Self> {
         let key_vec = string_to_vec_u8(input, KEY_LENGTH, None)?;
         Ok(Key::new(key_vec.try_into().unwrap()))
     }
@@ -126,7 +126,7 @@ pub fn string_to_vec_u8(
     input: &str,
     output_length: usize,
     padding_character: Option<char>,
-) -> Result<Vec<u8>> {
+) -> io::Result<Vec<u8>> {
     if input.len() == output_length * 2 + output_length - 1 {
         let mut padding_char = padding_character;
         let mut input_unpadded = String::new();
@@ -134,7 +134,10 @@ pub fn string_to_vec_u8(
             if (i + 1) % 3 == 0 {
                 if let Some(pc) = padding_char {
                     if c != pc {
-                        return Err(anyhow::anyhow!("{} has inconsistent passing", input));
+                        return Err(Error::new(
+                            ErrorKind::InvalidInput,
+                            format!("{} has inconsistent padding", input),
+                        ));
                     }
                 } else {
                     padding_char = Some(c);
@@ -149,13 +152,16 @@ pub fn string_to_vec_u8(
     }
 }
 
-fn string_unpadded_to_vec_u8(input: &str, output_length: usize) -> Result<Vec<u8>> {
+fn string_unpadded_to_vec_u8(input: &str, output_length: usize) -> io::Result<Vec<u8>> {
     let mut output = Vec::with_capacity(output_length);
 
     if input.len() == output_length * 2 {
         for (i, _) in input.chars().enumerate() {
             if i % 2 == 0 {
-                let digits = u8::from_str_radix(&input[i..=i + 1], 16)?;
+                let digits = match u8::from_str_radix(&input[i..=i + 1], 16) {
+                    Ok(d) => d,
+                    Err(e) => return Err(Error::new(ErrorKind::InvalidInput, format!("{:?}", e))),
+                };
                 output.push(digits);
             } else {
                 continue;
@@ -163,10 +169,9 @@ fn string_unpadded_to_vec_u8(input: &str, output_length: usize) -> Result<Vec<u8
         }
         Ok(output)
     } else {
-        Err(anyhow::anyhow!(
-            "{} is not of length {}",
-            input,
-            output_length * 2
+        Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("{} is not of length {}", input, output_length * 2),
         ))
     }
 }
@@ -194,7 +199,7 @@ pub enum DeviceProfile {
     Us915,
 }
 
-pub fn enable(token: &Token, devices: &[Device]) -> Result<()> {
+pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     let devices_json = create_json(devices)?;
 
     curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
@@ -204,7 +209,7 @@ pub fn enable(token: &Token, devices: &[Device]) -> Result<()> {
     Ok(())
 }
 
-fn create_json(devices: &[Device]) -> Result<json::JsonValue> {
+fn create_json(devices: &[Device]) -> Result<json::JsonValue, MtcapError> {
     let mut devices_json = json::object! {
         devices: [],
         enabled: true,

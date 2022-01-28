@@ -1,8 +1,7 @@
 use std::fmt;
 
-use anyhow::Result;
-
 use crate::curl;
+use crate::result::MtcapError;
 
 const IPV4_LENGTH: usize = 4;
 
@@ -54,7 +53,7 @@ impl Token {
     }
 }
 
-pub fn login(gateway: &Gateway) -> Result<Token> {
+pub fn login(gateway: &Gateway) -> Result<Token, MtcapError> {
     let response = curl::get(format!(
         "https://{}/api/login?username={}&password={}",
         gateway.ip, gateway.username, gateway.password
@@ -68,13 +67,13 @@ pub fn login(gateway: &Gateway) -> Result<Token> {
     Ok(token)
 }
 
-pub fn save_apply(token: &Token) -> Result<()> {
+pub fn save_apply(token: &Token) -> Result<(), MtcapError> {
     curl::post(get_url(token, "command/save_apply"))?;
 
     Ok(())
 }
 
-pub fn logout(token: &Token) -> Result<()> {
+pub fn logout(token: &Token) -> Result<(), MtcapError> {
     curl::get(get_url(token, "logout"))?;
 
     Ok(())

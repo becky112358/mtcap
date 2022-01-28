@@ -1,8 +1,8 @@
 use std::process::{Command, Output};
 
-use anyhow::Result;
+use crate::result::MtcapError;
 
-pub fn get(url: String) -> Result<String> {
+pub fn get(url: String) -> Result<String, MtcapError> {
     let response = Command::new("curl").arg("-k").arg(url).output()?;
 
     response_analyse(&response)?;
@@ -10,7 +10,7 @@ pub fn get(url: String) -> Result<String> {
     Ok(String::from_utf8_lossy(&response.stdout).to_string())
 }
 
-pub fn post(url: String) -> Result<()> {
+pub fn post(url: String) -> Result<(), MtcapError> {
     let response = Command::new("curl")
         .arg("-k")
         .arg(url)
@@ -25,7 +25,7 @@ pub fn post(url: String) -> Result<()> {
     Ok(())
 }
 
-pub fn put(url: String, json: json::JsonValue) -> Result<()> {
+pub fn put(url: String, json: json::JsonValue) -> Result<(), MtcapError> {
     let response = Command::new("curl")
         .arg("-k")
         .arg(url)
@@ -42,17 +42,15 @@ pub fn put(url: String, json: json::JsonValue) -> Result<()> {
     Ok(())
 }
 
-fn response_analyse(output: &Output) -> Result<()> {
+fn response_analyse(output: &Output) -> Result<(), MtcapError> {
     let json = json::parse(&String::from_utf8_lossy(&output.stdout))?;
     let status = json["status"].to_string();
 
     if status.eq("success") {
         Ok(())
     } else if !json["error"].is_null() {
-        println!("Gateway error");
-        Err(anyhow::anyhow!(json["error"].to_string()))
+        Err(MtcapError::Other(json["error"].to_string()))
     } else {
-        println!("Gateway error");
-        Err(anyhow::anyhow!(format!("{:?}", output)))
+        Err(MtcapError::Other(format!("{:?}", output)))
     }
 }

@@ -1,7 +1,6 @@
-use anyhow::Result;
-
 use crate::credentials::{get_url, save_apply, Token};
 use crate::curl;
+use crate::result::MtcapError;
 
 pub enum Mode {
     NetworkServer,
@@ -9,7 +8,7 @@ pub enum Mode {
     Disabled,
 }
 
-pub fn set_mode(token: &Token, mode: Mode) -> Result<()> {
+pub fn set_mode(token: &Token, mode: Mode) -> Result<(), MtcapError> {
     let response = curl::get(get_url(token, "loraNetwork/lora"))?;
 
     let mut json = json::parse(&response)?["result"].clone();
