@@ -41,6 +41,7 @@ impl Device {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Eui {
     digits: [u8; EUI_LENGTH],
 }
@@ -119,6 +120,12 @@ impl FromStr for Key {
 impl Key {
     pub fn new(key: [u8; KEY_LENGTH]) -> Self {
         Self { digits: key }
+    }
+
+    fn to_string_no_spaces(&self) -> String {
+        let mut output = self.to_string();
+        output.retain(|c| c.is_digit(16));
+        output
     }
 }
 
@@ -200,7 +207,13 @@ pub enum DeviceProfile {
 }
 
 pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
-    let devices_json = create_json(devices)?;
+    let mut devices_json = json::object! {
+        devices: [],
+        enabled: true,
+    };
+    for device in devices.iter() {
+        devices_json["devices"].push(create_json(device)?)?;
+    }
 
     curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
 
@@ -209,29 +222,84 @@ pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     Ok(())
 }
 
-fn create_json(devices: &[Device]) -> Result<json::JsonValue, MtcapError> {
-    let mut devices_json = json::object! {
-        devices: [],
-        enabled: true,
-    };
-    for device in devices.iter() {
-        let mut application_key = device.application_key.to_string();
-        application_key.retain(|c| c.is_digit(16));
-        let device_json = json::object! {
-            appeui: device.join_eui.to_string(),
-            appkey: application_key,
-            class: device.class.to_string(),
-            deveui: device.device_eui.to_string(),
-            device_profile_id: format!("LW102-OTA-{}", device.device_profile),
-            network_profile_id: format!("DEFAULT-CLASS-{}", device.network_profile),
-        };
-        devices_json["devices"].push(device_json)?;
+pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
+    let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
+    let mut devices_json = json::parse(&gateway_response)?["result"].clone();
+
+    for device_wanted in devices {
+        let mut included = false;
+        let mut index = 0;
+        while !devices_json["devices"][index].is_null() {
+            let device_eui_existing =
+                Eui::from_str(&devices_json["devices"][index]["deveui"].to_string())?;
+            if device_eui_existing.eq(&device_wanted.device_eui) {
+                update_json(device_wanted, &mut devices_json["devices"][index])?;
+                included = true;
+            }
+
+            index += 1;
+        }
+
+        if !included {
+            devices_json["devices"].push(create_json(device_wanted)?)?;
+        }
     }
 
-    Ok(devices_json)
+    curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
+
+    save_apply(token)?;
+
+    Ok(())
 }
 
-#[rustfmt::skip]
+pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
+    let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
+    let mut devices_json = json::parse(&gateway_response)?["result"].clone();
+
+    for device_unwanted in devices {
+        let mut index = 0;
+        while !devices_json["devices"][index].is_null() {
+            let device_eui_existing =
+                Eui::from_str(&devices_json["devices"][index]["deveui"].to_string())?;
+            if device_eui_existing.eq(&device_unwanted.device_eui) {
+                devices_json["devices"].array_remove(index);
+            } else {
+                index += 1;
+            }
+        }
+    }
+
+    curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
+
+    save_apply(token)?;
+
+    Ok(())
+}
+
+fn create_json(device: &Device) -> Result<json::JsonValue, MtcapError> {
+    let device_json = json::object! {
+        deveui: device.device_eui.to_string(),
+        appeui: device.join_eui.to_string(),
+        appkey: device.application_key.to_string_no_spaces(),
+        class: device.class.to_string(),
+        device_profile_id: format!("LW102-OTA-{}", device.device_profile),
+        network_profile_id: format!("DEFAULT-CLASS-{}", device.network_profile),
+    };
+
+    Ok(device_json)
+}
+
+fn update_json(device: &Device, json: &mut json::JsonValue) -> Result<(), MtcapError> {
+    json["deveui"] = device.device_eui.to_string().into();
+    json["appeui"] = device.join_eui.to_string().into();
+    json["appkey"] = device.application_key.to_string_no_spaces().into();
+    json["class"] = device.class.to_string().into();
+    json["device_profile_id"] = format!("LW102-OTA-{}", device.device_profile).into();
+    json["network_profile_id"] = format!("DEFAULT-CLASS-{}", device.network_profile).into();
+
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "./test_devices.rs"]
 mod test_devices;
