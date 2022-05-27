@@ -1,3 +1,5 @@
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::process::{Command, Output};
 
 use crate::result::MtcapError;
@@ -26,18 +28,28 @@ pub fn post(url: String) -> Result<(), MtcapError> {
 }
 
 pub fn put(url: String, json: json::JsonValue) -> Result<(), MtcapError> {
+    const FILE_NAME: &str = "temporary_file_to_transmit_data_through_curl.json";
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(FILE_NAME)?;
+    write!(&mut file, "{}", json::stringify(json))?;
+
     let response = Command::new("curl")
         .arg("-k")
         .arg(url)
         .arg("-X")
         .arg("PUT")
         .arg("-d")
-        .arg(json::stringify(json))
+        .arg(format!("@{}", FILE_NAME))
         .arg("-H")
         .arg("Content-Type: application/json")
-        .output()?;
+        .output();
 
-    response_analyse(&response)?;
+    let _ = fs::remove_file(FILE_NAME);
+
+    response_analyse(&response?)?;
 
     Ok(())
 }
