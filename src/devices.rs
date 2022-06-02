@@ -206,6 +206,13 @@ pub enum DeviceProfile {
     Us915,
 }
 
+pub fn get_count(token: &Token) -> Result<usize, MtcapError> {
+    let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
+    let devices_json = &json::parse(&gateway_response)?["result"]["devices"];
+
+    Ok(devices_json.len())
+}
+
 pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     let mut devices_json = json::object! {
         devices: [],
