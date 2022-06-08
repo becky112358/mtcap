@@ -54,6 +54,19 @@ pub fn put(url: String, json: json::JsonValue) -> Result<(), MtcapError> {
     Ok(())
 }
 
+pub fn delete(url: String) -> Result<(), MtcapError> {
+    let response = Command::new("curl")
+        .arg("-k")
+        .arg(url)
+        .arg("-X")
+        .arg("DELETE")
+        .output()?;
+
+    response_analyse(&response)?;
+
+    Ok(())
+}
+
 fn response_analyse(output: &Output) -> Result<(), MtcapError> {
     let json = json::parse(&String::from_utf8_lossy(&output.stdout))?;
     let status = json["status"].to_string();

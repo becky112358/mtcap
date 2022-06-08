@@ -229,6 +229,24 @@ pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     Ok(())
 }
 
+pub fn clear(token: &Token) -> Result<(), MtcapError> {
+    enable(token, &[])?;
+
+    let gateway_response = curl::get(get_url(token, "lora/devices"))?;
+    let devices_json = json::parse(&gateway_response)?["result"].clone();
+    let mut index = 0;
+    while !devices_json[index].is_null() {
+        let device_eui = devices_json[index]["deveui"].to_string();
+        curl::delete(get_url(token, &format!("lora/devices/{device_eui}")))?;
+
+        index += 1;
+    }
+
+    save_apply(token)?;
+
+    Ok(())
+}
+
 pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
     let mut devices_json = json::parse(&gateway_response)?["result"].clone();
@@ -260,23 +278,39 @@ pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
 }
 
 pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
-    let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
-    let mut devices_json = json::parse(&gateway_response)?["result"].clone();
+    let device_euis_unwanted = devices
+        .iter()
+        .map(|device| device.device_eui.to_string())
+        .collect::<String>();
 
-    for device_unwanted in devices {
-        let mut index = 0;
-        while !devices_json["devices"][index].is_null() {
-            let device_eui_existing =
-                Eui::from_str(&devices_json["devices"][index]["deveui"].to_string())?;
-            if device_eui_existing.eq(&device_unwanted.device_eui) {
-                devices_json["devices"].array_remove(index);
-            } else {
-                index += 1;
-            }
+    let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
+    let mut allowlist_json = json::parse(&gateway_response)?["result"].clone();
+    let mut index = 0;
+    while !allowlist_json["devices"][index].is_null() {
+        let device_eui_existing = allowlist_json["devices"][index]["deveui"].to_string();
+        if device_euis_unwanted.contains(&device_eui_existing) {
+            allowlist_json["devices"].array_remove(index);
+        } else {
+            index += 1;
         }
     }
 
-    curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
+    curl::put(get_url(token, "loraNetwork/whitelist"), allowlist_json)?;
+
+    let gateway_response = curl::get(get_url(token, "lora/devices"))?;
+    let devices_json = json::parse(&gateway_response)?["result"].clone();
+    let mut index = 0;
+    while !devices_json[index].is_null() {
+        let device_eui_existing = devices_json[index]["deveui"].to_string();
+        if device_euis_unwanted.contains(&device_eui_existing) {
+            curl::delete(get_url(
+                token,
+                &format!("lora/devices/{device_eui_existing}"),
+            ))?;
+        }
+
+        index += 1;
+    }
 
     save_apply(token)?;
 
