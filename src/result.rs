@@ -8,6 +8,8 @@ pub enum MtcapError {
     Io(#[from] io::Error),
     #[error(transparent)]
     Json(#[from] json::Error),
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("{0}")]
     Other(String),
 }
@@ -17,6 +19,7 @@ impl From<MtcapError> for io::Error {
         match err {
             MtcapError::Io(e) => e,
             MtcapError::Json(inner) => io::Error::new(io::ErrorKind::Other, inner),
+            MtcapError::ParseIntError(inner) => io::Error::new(io::ErrorKind::Other, inner),
             MtcapError::Other(inner) => io::Error::new(io::ErrorKind::Other, inner),
         }
     }

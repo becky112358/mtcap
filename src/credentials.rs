@@ -79,6 +79,6 @@ pub fn logout(token: &Token) -> Result<(), MtcapError> {
     Ok(())
 }
 
-pub fn get_url(token: &Token, api: &str) -> String {
-    format!("https://{}/api/{}?token={}", token.ip, api, token.token)
+pub fn get_url<T: fmt::Display>(token: &Token, api: T) -> String {
+    format!("https://{}/api/{api}?token={}", token.ip, token.token)
 }

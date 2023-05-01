@@ -41,7 +41,7 @@ impl Device {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Eui {
     digits: [u8; EUI_LENGTH],
 }
@@ -124,7 +124,7 @@ impl Key {
 
     fn to_string_no_spaces(&self) -> String {
         let mut output = self.to_string();
-        output.retain(|c| c.is_digit(16));
+        output.retain(|c| c.is_ascii_hexdigit());
         output
     }
 }
@@ -219,7 +219,7 @@ pub fn enable(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
         enabled: true,
     };
     for device in devices.iter() {
-        devices_json["devices"].push(create_json(device)?)?;
+        devices_json["devices"].push(create_json(device))?;
     }
 
     curl::put(get_url(token, "loraNetwork/whitelist"), devices_json)?;
@@ -237,7 +237,7 @@ pub fn clear(token: &Token) -> Result<(), MtcapError> {
     let mut index = 0;
     while !devices_json[index].is_null() {
         let device_eui = devices_json[index]["deveui"].to_string();
-        curl::delete(get_url(token, &format!("lora/devices/{device_eui}")))?;
+        curl::delete(get_url(token, format!("lora/devices/{device_eui}")))?;
 
         index += 1;
     }
@@ -266,7 +266,7 @@ pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
         }
 
         if !included {
-            devices_json["devices"].push(create_json(device_wanted)?)?;
+            devices_json["devices"].push(create_json(device_wanted))?;
         }
     }
 
@@ -305,7 +305,7 @@ pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
         if device_euis_unwanted.contains(&device_eui_existing) {
             curl::delete(get_url(
                 token,
-                &format!("lora/devices/{device_eui_existing}"),
+                format!("lora/devices/{device_eui_existing}"),
             ))?;
         }
 
@@ -317,17 +317,15 @@ pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     Ok(())
 }
 
-fn create_json(device: &Device) -> Result<json::JsonValue, MtcapError> {
-    let device_json = json::object! {
+fn create_json(device: &Device) -> json::JsonValue {
+    json::object! {
         deveui: device.device_eui.to_string(),
         appeui: device.join_eui.to_string(),
         appkey: device.application_key.to_string_no_spaces(),
         class: device.class.to_string(),
         device_profile_id: format!("LW102-OTA-{}", device.device_profile),
         network_profile_id: format!("DEFAULT-CLASS-{}", device.network_profile),
-    };
-
-    Ok(device_json)
+    }
 }
 
 fn update_json(device: &Device, json: &mut json::JsonValue) -> Result<(), MtcapError> {

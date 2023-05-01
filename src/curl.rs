@@ -1,11 +1,18 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::os::windows::process::CommandExt as _;
 use std::process::{Command, Output};
 
 use crate::result::MtcapError;
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub fn get(url: String) -> Result<String, MtcapError> {
-    let response = Command::new("curl").arg("-k").arg(url).output()?;
+    let response = Command::new("curl")
+        .arg("-k")
+        .arg(url)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()?;
 
     response_analyse(&response)?;
 
@@ -20,6 +27,7 @@ pub fn post(url: String) -> Result<(), MtcapError> {
         .arg("POST")
         .arg("-d")
         .arg("\"\"")
+        .creation_flags(CREATE_NO_WINDOW)
         .output()?;
 
     response_analyse(&response)?;
@@ -45,6 +53,7 @@ pub fn put(url: String, json: json::JsonValue) -> Result<(), MtcapError> {
         .arg(format!("@{}", FILE_NAME))
         .arg("-H")
         .arg("Content-Type: application/json")
+        .creation_flags(CREATE_NO_WINDOW)
         .output();
 
     let _ = fs::remove_file(FILE_NAME);
@@ -60,6 +69,7 @@ pub fn delete(url: String) -> Result<(), MtcapError> {
         .arg(url)
         .arg("-X")
         .arg("DELETE")
+        .creation_flags(CREATE_NO_WINDOW)
         .output()?;
 
     response_analyse(&response)?;
