@@ -1,6 +1,6 @@
 [package]
 name = "mtcap"
-version = "0.3.0"
+version = "1.0.0"
 description = "Communication with MTCAP"
 edition = "2021"
 license = "MIT"
@@ -10,6 +10,6 @@ repository = "https://github.com/becky112358/mtcap"
 
 [dependencies]
 json = "0.12"
-strum = "0.23"
-strum_macros = "0.23"
+strum = "0.24"
+strum_macros = "0.24"
 thiserror = "1.0"

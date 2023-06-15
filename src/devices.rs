@@ -22,7 +22,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(
+    pub const fn new(
         device_eui: Eui,
         join_eui: Eui,
         application_key: Key,
@@ -73,7 +73,7 @@ impl FromStr for Eui {
 }
 
 impl Eui {
-    pub fn new(eui: [u8; EUI_LENGTH]) -> Self {
+    pub const fn new(eui: [u8; EUI_LENGTH]) -> Self {
         Self { digits: eui }
     }
 }
@@ -118,7 +118,7 @@ impl FromStr for Key {
 }
 
 impl Key {
-    pub fn new(key: [u8; KEY_LENGTH]) -> Self {
+    pub const fn new(key: [u8; KEY_LENGTH]) -> Self {
         Self { digits: key }
     }
 
@@ -277,18 +277,14 @@ pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     Ok(())
 }
 
-pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
-    let device_euis_unwanted = devices
-        .iter()
-        .map(|device| device.device_eui.to_string())
-        .collect::<String>();
-
+pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
     let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
     let mut allowlist_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
     while !allowlist_json["devices"][index].is_null() {
-        let device_eui_existing = allowlist_json["devices"][index]["deveui"].to_string();
-        if device_euis_unwanted.contains(&device_eui_existing) {
+        let device_eui_existing =
+            Eui::from_str(&allowlist_json["devices"][index]["deveui"].to_string())?;
+        if devices.contains(&device_eui_existing) {
             allowlist_json["devices"].array_remove(index);
         } else {
             index += 1;
@@ -301,8 +297,8 @@ pub fn remove(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
     let devices_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
     while !devices_json[index].is_null() {
-        let device_eui_existing = devices_json[index]["deveui"].to_string();
-        if device_euis_unwanted.contains(&device_eui_existing) {
+        let device_eui_existing = Eui::from_str(&devices_json[index]["deveui"].to_string())?;
+        if devices.contains(&device_eui_existing) {
             curl::delete(get_url(
                 token,
                 format!("lora/devices/{device_eui_existing}"),
