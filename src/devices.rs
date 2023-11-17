@@ -278,6 +278,10 @@ pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
 }
 
 pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
+    if devices.is_empty() {
+        return Ok(());
+    }
+
     let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
     let mut allowlist_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
@@ -311,6 +315,35 @@ pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
     save_apply(token)?;
 
     Ok(())
+}
+
+pub fn remove_old(token: &Token, older_than: chrono::NaiveDate) -> Result<(), MtcapError> {
+    let mut devices_to_remove = Vec::new();
+
+    let gateway_response = curl::get(get_url(token, "lora/devices"))?;
+    let devices_json = json::parse(&gateway_response)?["result"].clone();
+    if let json::JsonValue::Array(devices_array) = devices_json {
+        for device in devices_array {
+            let device_date = if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                &device["last_seen"].to_string(),
+                "%Y-%m-%dT%H:%M:%SZ",
+            ) {
+                dt.date()
+            } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                &device["created_at"].to_string(),
+                "%Y-%m-%dT%H:%M:%SZ",
+            ) {
+                dt.date()
+            } else {
+                continue;
+            };
+            if device_date < older_than {
+                devices_to_remove.push(Eui::from_str(&device["deveui"].to_string())?);
+            }
+        }
+    }
+
+    remove(token, &devices_to_remove)
 }
 
 fn create_json(device: &Device) -> json::JsonValue {
