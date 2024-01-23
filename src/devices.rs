@@ -301,12 +301,10 @@ pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
     let devices_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
     while !devices_json[index].is_null() {
-        let device_eui_existing = Eui::from_str(&devices_json[index]["deveui"].to_string())?;
+        let device_eui = devices_json[index]["deveui"].to_string();
+        let device_eui_existing = Eui::from_str(&device_eui)?;
         if devices.contains(&device_eui_existing) {
-            curl::delete(get_url(
-                token,
-                format!("lora/devices/{device_eui_existing}"),
-            ))?;
+            curl::delete(get_url(token, format!("lora/devices/{device_eui}")))?;
         }
 
         index += 1;
