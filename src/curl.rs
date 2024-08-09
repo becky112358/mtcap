@@ -100,8 +100,9 @@ impl CreationFlagsBuilderSetting for Command {
         #[cfg(windows)]
         self.creation_flags(_flag);
         // creation flags are windows-specific
-        // CREATE_NO_WINDOW instructs windows not to create a console window while running the
-        // desired executable (curl.exe in this case, not installed by default on windows)
+        // CREATE_NO_WINDOW instructs windows not to create a console/terminal
+        // window while running the desired executable (curl.exe in this case,
+        // not installed by default on windows)
         self
     }
 }
