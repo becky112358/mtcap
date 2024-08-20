@@ -42,7 +42,7 @@ impl Device {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Eui {
     digits: [u8; EUI_LENGTH],
 }
