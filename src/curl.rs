@@ -1,6 +1,5 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-#[cfg(windows)]
 use std::os::windows::process::CommandExt as _;
 use std::process::{Command, Output};
 
@@ -12,7 +11,7 @@ pub fn get(url: String) -> Result<String, MtcapError> {
     let response = Command::new("curl")
         .arg("-k")
         .arg(url)
-        .os_aware_creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()?;
 
     response_analyse(&response)?;
@@ -28,7 +27,7 @@ pub fn post(url: String) -> Result<(), MtcapError> {
         .arg("POST")
         .arg("-d")
         .arg("\"\"")
-        .os_aware_creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()?;
 
     response_analyse(&response)?;
@@ -54,7 +53,7 @@ pub fn put(url: String, json: json::JsonValue) -> Result<(), MtcapError> {
         .arg(format!("@{}", FILE_NAME))
         .arg("-H")
         .arg("Content-Type: application/json")
-        .os_aware_creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(CREATE_NO_WINDOW)
         .output();
 
     let _ = fs::remove_file(FILE_NAME);
@@ -70,7 +69,7 @@ pub fn delete(url: String) -> Result<(), MtcapError> {
         .arg(url)
         .arg("-X")
         .arg("DELETE")
-        .os_aware_creation_flags(CREATE_NO_WINDOW)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()?;
 
     response_analyse(&response)?;
@@ -88,21 +87,5 @@ fn response_analyse(output: &Output) -> Result<(), MtcapError> {
         Err(MtcapError::Other(json["error"].to_string()))
     } else {
         Err(MtcapError::Other(format!("{:?}", output)))
-    }
-}
-
-trait CreationFlagsBuilderSetting {
-    fn os_aware_creation_flags(&mut self, flag: u32) -> &mut Self;
-}
-
-impl CreationFlagsBuilderSetting for Command {
-    fn os_aware_creation_flags(&mut self, _flag: u32) -> &mut Self {
-        #[cfg(windows)]
-        self.creation_flags(_flag);
-        // creation flags are windows-specific
-        // CREATE_NO_WINDOW instructs windows not to create a console/terminal
-        // window while running the desired executable (curl.exe in this case,
-        // not installed by default on windows)
-        self
     }
 }

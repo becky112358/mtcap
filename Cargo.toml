@@ -1,6 +1,6 @@
 [package]
 name = "mtcap"
-version = "1.1.0"
+version = "1.0.0"
 description = "Communication with MTCAP"
 edition = "2021"
 license = "MIT"
@@ -9,7 +9,6 @@ repository = "https://github.com/becky112358/mtcap"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.38"
 json = "0.12"
 strum = "0.24"
 strum_macros = "0.24"
