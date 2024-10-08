@@ -278,6 +278,10 @@ pub fn add(token: &Token, devices: &[Device]) -> Result<(), MtcapError> {
 }
 
 pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
+    if devices.is_empty() {
+        return Ok(());
+    }
+
     let gateway_response = curl::get(get_url(token, "loraNetwork/whitelist"))?;
     let mut allowlist_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
@@ -297,12 +301,10 @@ pub fn remove(token: &Token, devices: &[Eui]) -> Result<(), MtcapError> {
     let devices_json = json::parse(&gateway_response)?["result"].clone();
     let mut index = 0;
     while !devices_json[index].is_null() {
-        let device_eui_existing = Eui::from_str(&devices_json[index]["deveui"].to_string())?;
+        let device_eui = devices_json[index]["deveui"].to_string();
+        let device_eui_existing = Eui::from_str(&device_eui)?;
         if devices.contains(&device_eui_existing) {
-            curl::delete(get_url(
-                token,
-                format!("lora/devices/{device_eui_existing}"),
-            ))?;
+            curl::delete(get_url(token, format!("lora/devices/{device_eui}")))?;
         }
 
         index += 1;
@@ -360,6 +362,7 @@ fn update_json(device: &Device, json: &mut json::JsonValue) -> Result<(), MtcapE
     json["class"] = device.class.to_string().into();
     json["device_profile_id"] = format!("LW102-OTA-{}", device.device_profile).into();
     json["network_profile_id"] = format!("DEFAULT-CLASS-{}", device.network_profile).into();
+
     Ok(())
 }
 
