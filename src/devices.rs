@@ -341,3 +341,28 @@ pub fn remove_old(token: &Token, older_than: chrono::NaiveDate) -> Result<(), Mt
 
     remove(token, &devices_to_remove)
 }
+
+fn create_json(device: &Device) -> json::JsonValue {
+    json::object! {
+        deveui: device.device_eui.to_string(),
+        appeui: device.join_eui.to_string(),
+        appkey: device.application_key.to_string_no_spaces(),
+        class: device.class.to_string(),
+        device_profile_id: format!("LW102-OTA-{}", device.device_profile),
+        network_profile_id: format!("DEFAULT-CLASS-{}", device.network_profile),
+    }
+}
+
+fn update_json(device: &Device, json: &mut json::JsonValue) -> Result<(), MtcapError> {
+    json["deveui"] = device.device_eui.to_string().into();
+    json["appeui"] = device.join_eui.to_string().into();
+    json["appkey"] = device.application_key.to_string_no_spaces().into();
+    json["class"] = device.class.to_string().into();
+    json["device_profile_id"] = format!("LW102-OTA-{}", device.device_profile).into();
+    json["network_profile_id"] = format!("DEFAULT-CLASS-{}", device.network_profile).into();
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "./test_devices.rs"]
+mod test_devices;
