@@ -51,6 +51,10 @@ impl Token {
     fn new(ip: Ipv4, token: String) -> Self {
         Self { ip, token }
     }
+
+    pub fn token(&self) -> &str {
+        &self.token
+    }
 }
 
 pub fn login(gateway: &Gateway) -> Result<Token, MtcapError> {

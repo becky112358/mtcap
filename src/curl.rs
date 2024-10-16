@@ -5,7 +5,7 @@ use std::process::{Command, Output};
 
 use crate::result::MtcapError;
 
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub fn get(url: String) -> Result<String, MtcapError> {
     let response = Command::new("curl")
